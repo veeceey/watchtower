@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	token  = "123123123"
+	token = "123123123"
 )
 
 func TestAPI(t *testing.T) {
@@ -56,6 +56,39 @@ var _ = Describe("API", func() {
 			handlerFunc(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+	})
+
+	Describe("Custom ServeMux", func() {
+		It("should return 404 for unregistered paths", func() {
+			api.RegisterFunc("/v1/test", testHandler)
+
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/debug/vars", nil)
+			api.mux.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("should serve registered paths with valid token", func() {
+			api.RegisterFunc("/v1/hello", testHandler)
+
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/v1/hello", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			api.mux.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+
+		It("should require token for registered paths", func() {
+			api.RegisterFunc("/v1/secured", testHandler)
+
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/v1/secured", nil)
+			api.mux.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 		})
 	})
 })

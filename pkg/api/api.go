@@ -13,6 +13,7 @@ const tokenMissingMsg = "api token is empty or has not been set. exiting"
 type API struct {
 	Token       string
 	hasHandlers bool
+	mux         *http.ServeMux
 }
 
 // New is a factory function creating a new API instance
@@ -20,6 +21,7 @@ func New(token string) *API {
 	return &API{
 		Token:       token,
 		hasHandlers: false,
+		mux:         http.NewServeMux(),
 	}
 }
 
@@ -40,13 +42,13 @@ func (api *API) RequireToken(fn http.HandlerFunc) http.HandlerFunc {
 // RegisterFunc is a wrapper around http.HandleFunc that also sets the flag used to determine whether to launch the API
 func (api *API) RegisterFunc(path string, fn http.HandlerFunc) {
 	api.hasHandlers = true
-	http.HandleFunc(path, api.RequireToken(fn))
+	api.mux.HandleFunc(path, api.RequireToken(fn))
 }
 
 // RegisterHandler is a wrapper around http.Handler that also sets the flag used to determine whether to launch the API
 func (api *API) RegisterHandler(path string, handler http.Handler) {
 	api.hasHandlers = true
-	http.Handle(path, api.RequireToken(handler.ServeHTTP))
+	api.mux.Handle(path, api.RequireToken(handler.ServeHTTP))
 }
 
 // Start the API and serve over HTTP. Requires an API Token to be set.
@@ -62,15 +64,15 @@ func (api *API) Start(block bool) error {
 	}
 
 	if block {
-		runHTTPServer()
+		api.runHTTPServer()
 	} else {
 		go func() {
-			runHTTPServer()
+			api.runHTTPServer()
 		}()
 	}
 	return nil
 }
 
-func runHTTPServer() {
-	log.Fatal(http.ListenAndServe(":8080", nil))
+func (api *API) runHTTPServer() {
+	log.Fatal(http.ListenAndServe(":8080", api.mux))
 }
